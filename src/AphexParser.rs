@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 
 use chumsky::prelude::*;
 use chumsky::Parser;
@@ -121,7 +119,7 @@ pub fn expression_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<T
                 .separated_by(just(Token::Ctrl(',')))
                 .allow_trailing();
 
-            let list = items
+            let _list = items
                 .clone()
                 .delimited_by(just(Token::Ctrl('[')), just(Token::Ctrl(']')))
                 .map(Expr::List);
@@ -224,7 +222,6 @@ pub fn expression_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<T
 
  let statement = expression_statement.clone()
      .or(let_statement.clone());
- let statement = let_statement.clone();
 
 
  // let block = expr

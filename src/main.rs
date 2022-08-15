@@ -1,3 +1,8 @@
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
+#![allow(unused_imports)]
+
+
 use AST::{Spanned, Expr, Value};
 use chumsky::{prelude::*, Stream};
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
@@ -148,33 +153,45 @@ fn compile(
     stack: &mut Vec<(String, Value)>,
 ) -> Result<Value, Error> {
     Ok(match &expr.0 {
-        Expr::Error => unreachable!(), // Error expressions only get created by parser errors, so cannot exist in a valid AST
+
+        // Error expressions only get created by parser errors, so cannot exist in a valid AST
+        Expr::Error => unreachable!(),
+
         Expr::Value(val) => val.clone(),
-        Expr::List(items) => Value::List(
-            items
+        
+        Expr::List(items) => {
+            Value::List(
+                items
+                    .iter()
+                    .map(|item| compile(item, funcs, stack))
+                    .collect::<Result<_, _>>()?,
+            )
+        }
+        
+        Expr::Local(name) => {
+            stack
                 .iter()
-                .map(|item| compile(item, funcs, stack))
-                .collect::<Result<_, _>>()?,
-        ),
-        Expr::Local(name) => stack
-            .iter()
-            .rev()
-            .find(|(l, _)| l == name)
-            .map(|(_, v)| v.clone())
-            .or_else(|| Some(Value::Func(name.clone())).filter(|_| funcs.contains_key(name)))
-            .ok_or_else(|| Error {
-                span: expr.1.clone(),
-                msg: format!("No such variable '{}' in scope", name),
-            })?,
+                .rev()
+                .find(|(l, _)| l == name)
+                .map(|(_, v)| v.clone())
+                .or_else(|| Some(Value::Func(name.clone())).filter(|_| funcs.contains_key(name)))
+                .ok_or_else(|| Error {
+                    span: expr.1.clone(),
+                    msg: format!("No such variable '{}' in scope", name),
+                })?
+        }
+        
         Expr::Let(local, val) => {
             let val = compile(val, funcs, stack)?;
             stack.push((local.clone(), val.clone()));
             val
         }
+        
         Expr::Then(a, b) => {
             compile(a, funcs, stack)?;
             compile(b, funcs, stack)?
         }
+
         Expr::Binary(a, BinaryOp::Add, b) => {
             let a_ = compile(a, funcs, stack)?.num(a.1.clone())?;
             let b_ = compile(b, funcs, stack)?.num(b.1.clone())?;
@@ -183,7 +200,8 @@ fn compile(
 
             let num = Value::Num(a_ + b_);
             num
-        },
+        }
+
         Expr::Binary(a, BinaryOp::Sub, b) => {
             let a_ = compile(a, funcs, stack)?.num(a.1.clone())?;
             let b_ = compile(b, funcs, stack)?.num(b.1.clone())?;
@@ -192,7 +210,8 @@ fn compile(
 
             let num = Value::Num(a_ + b_);
             num
-        },
+        }
+
         Expr::Binary(a, BinaryOp::Mul, b) => {
             let a_ = compile(a, funcs, stack)?.num(a.1.clone())?;
             let b_ = compile(b, funcs, stack)?.num(b.1.clone())?;
@@ -201,17 +220,23 @@ fn compile(
 
             let num = Value::Num(a_ + b_);
             num
-        },
-        Expr::Binary(a, BinaryOp::Div, b) => Value::Num(
-            compile(a, funcs, stack)?.num(a.1.clone())?
+        }
+
+        Expr::Binary(a, BinaryOp::Div, b) => {
+            Value::Num(
+                compile(a, funcs, stack)?.num(a.1.clone())?
                 / compile(b, funcs, stack)?.num(b.1.clone())?,
-        ),
+            )
+        }
+
         Expr::Binary(a, BinaryOp::Eq, b) => {
             Value::Bool(compile(a, funcs, stack)? == compile(b, funcs, stack)?)
         }
+
         Expr::Binary(a, BinaryOp::NotEq, b) => {
             Value::Bool(compile(a, funcs, stack)? != compile(b, funcs, stack)?)
         }
+
         Expr::Call(func, args) => {
             let f = compile(func, funcs, stack)?;
             match f {
@@ -239,6 +264,7 @@ fn compile(
                 }
             }
         }
+
         Expr::If(cond, a, b) => {
             let c = compile(cond, funcs, stack)?;
             match c {
@@ -252,6 +278,7 @@ fn compile(
                 }
             }
         }
+
         Expr::Print(a) => {
             let val = compile(a, funcs, stack)?;
             println!("{}", val);
