@@ -24,7 +24,7 @@ pub enum Token {
     
     Class,
     Fn,
-    Let,
+    Var,
     Td,
 
     Print,
@@ -155,7 +155,7 @@ impl fmt::Display for Token {
             Token::Class => write!(f, "class"),
             Token::Fn => write!(f, "fun"),
             Token::Td => write!(f, ":"),
-            Token::Let => write!(f, "let"),
+            Token::Var => write!(f, "let"),
             Token::Print => write!(f, "print"),
             Token::If => write!(f, "if"),
             Token::Else => write!(f, "else"),

@@ -2,15 +2,15 @@
 use chumsky::prelude::*;
 use chumsky::Parser;
 
-use crate::AST::Span;
-use crate::AST::Token;
-use crate::AST::Class;
-use crate::AST::Function;
-use crate::AST::Expr;
-use crate::AST::Value;
-use crate::AST::BinaryOp;
+use crate::ast::Span;
+use crate::ast::Token;
+use crate::ast::Class;
+use crate::ast::Function;
+use crate::ast::Expr;
+use crate::ast::Value;
+use crate::ast::BinaryOp;
 
-use crate::AST::Spanned;
+use crate::ast::Spanned;
 
 
 
@@ -206,8 +206,8 @@ pub fn expression_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<T
             compare
         }); 
 
-     // A let statement
-     let let_statement = just(Token::Let)
+     // A var statement
+     let var_statement = just(Token::Var)
      .ignore_then(ident)
      .then_ignore(just(Token::Op("=".to_string())))
      .then(raw_expr.clone())
@@ -220,9 +220,8 @@ pub fn expression_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<T
      raw_expr.clone()
      .then_ignore(just(Token::Ctrl(';')));
 
- let statement = expression_statement.clone()
-     .or(let_statement.clone());
-
+  let statement = expression_statement.clone()
+      .or(var_statement.clone());
 
  // let block = expr
  // .clone()

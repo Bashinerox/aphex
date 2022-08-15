@@ -1,8 +1,8 @@
 use chumsky::prelude::*;
 use chumsky::Parser;
 
-use crate::AST::Token;
-use crate::AST::Span;
+use crate::ast::Token;
+use crate::ast::Span;
 
 pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     // A parser for numbers
@@ -32,7 +32,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     let ident = text::ident().map(|ident: String| match ident.as_str() {
         "class" => Token::Class,
         "fn" => Token::Fn,
-        "let" => Token::Let,
+        "var" => Token::Var,
         //":" => Token::Td,
         "print" => Token::Print,
         "if" => Token::If,
