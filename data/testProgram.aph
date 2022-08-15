@@ -1,0 +1,6 @@
+
+class myClass {
+    fn myFunc(x: bool, y: bool): f32 {
+        var z = 4 * (2 + 5);
+    }
+}
