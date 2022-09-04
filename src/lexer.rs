@@ -33,6 +33,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "class" => Token::Class,
         "fn" => Token::Fn,
         "var" => Token::Var,
+        "return" => Token::Ret,
         //":" => Token::Td,
         "print" => Token::Print,
         "if" => Token::If,

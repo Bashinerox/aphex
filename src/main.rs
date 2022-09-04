@@ -1,11 +1,20 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 #![allow(unused_imports)]
-
+#![allow(unused_variables)]
 
 use ast::{Spanned, Expr, Value};
 use chumsky::{prelude::*, Stream};
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
+use inkwell::OptimizationLevel;
+use inkwell::context::Context;
+use inkwell::module::Module;
+use inkwell::targets::{TargetMachine, Target, InitializationConfig, RelocMode, CodeModel, FileType};
+use inkwell::types::IntType;
+use inkwell::values::PointerValue;
+use inkwell::passes::PassManager;
+
+use std::path::Path;
 use std::{collections::HashMap, env, fmt, fs};
 
 //use ariadne:;
@@ -15,8 +24,9 @@ pub mod lexer;
 pub mod compile;
 pub mod ast;
 
-use crate::AphexParser::class_parser;
-use crate::AphexLexer::lexer;
+use crate::parser::class_parser;
+use crate::lexer::lexer;
+use crate::compile::Compiler;
 
 use crate::ast::Token;
 // use crate::AST::Spanned;
@@ -27,7 +37,51 @@ use crate::ast::Error;
 use crate::ast::BinaryOp;
 use chumsky::Parser;
 
+fn print_splash() {
+    println!("⌜                            ⌝");
+    println!(" APHEX: THE TWINNING COMPILER ");
+    println!("⌞                            ⌟");
+}
+
+fn get_host_cpu_name() -> String {
+    TargetMachine::get_host_cpu_name().to_string()
+}
+
+fn get_host_cpu_features() -> String {
+    TargetMachine::get_host_cpu_features().to_string()
+}
+
+fn ptr_sized_int_type<'ctx>(target_machine: &TargetMachine, context: &'ctx Context) -> IntType<'ctx> {
+    let target_data = target_machine.get_target_data();
+    context.ptr_sized_int_type(&target_data, None)
+}
+
+fn apply_target_to_module<'ctx>(target_machine: &TargetMachine, module: &Module) {
+    module.set_triple(&target_machine.get_triple());
+    module.set_data_layout(&target_machine.get_target_data().get_data_layout());
+}
+
+
+fn get_native_target_machine() -> TargetMachine {
+    Target::initialize_native(&InitializationConfig::default()).expect("Failed to initialize native target");
+    let target_triple = TargetMachine::get_default_triple();
+    let target = Target::from_triple(&target_triple).unwrap();
+    target
+        .create_target_machine(
+            &target_triple,
+            &get_host_cpu_name(),
+            &get_host_cpu_features(),
+            OptimizationLevel::None,
+            RelocMode::Default,
+            CodeModel::Default,
+        )
+        .unwrap()
+}
+
 fn main() {
+    env::set_var("RUST_BACKTRACE", "1");
+
+    print_splash();
 
     // let src = fs::read_to_string(env::args().nth(1).expect("Expected file argument"))
     //     .expect("Failed to read file");
@@ -35,8 +89,29 @@ fn main() {
      let src = fs::read_to_string(env::args().nth(1).unwrap_or("data/testProgram.aph".into()))
          .expect("Failed to read file");
 
+    let context = inkwell::context::Context::create();
+    let module = context.create_module("main");
+    let builder = context.create_builder();
 
-    let (tokens, mut errs) = lexer().parse_recovery(src.as_str());
+    let pass_manager = PassManager::<Module>::create(());
+
+    pass_manager.add_instruction_combining_pass();
+    pass_manager.add_reassociate_pass();
+    pass_manager.add_gvn_pass();
+    pass_manager.add_cfg_simplification_pass();
+    pass_manager.add_basic_alias_analysis_pass();
+    pass_manager.add_promote_memory_to_register_pass();
+    pass_manager.add_instruction_combining_pass();
+    pass_manager.add_reassociate_pass();
+
+    let compiler = Compiler {
+        context: &context,
+        builder: &builder,
+        module: &module,
+    };
+
+
+    let (tokens, errs) = lexer().parse_recovery(src.as_str());
 
     let parse_errs = if let Some(tokens) = tokens {
         //dbg!(tokens.clone());
@@ -46,18 +121,37 @@ fn main() {
 
         //dbg!(ast.clone());
 
+
         if let Some(classes) = ast.filter(|_| errs.len() + parse_errs.len() == 0) {
             for class in classes {
-                //println!("{}", class.name);
-                let funcMap: HashMap<String, Function> = class.funcs.clone().into_iter().collect();
+                println!("compiling {}...", class.name);
+                let func_map: HashMap<String, Function> = class.funcs.clone().into_iter().collect();
+                let mut variable_map: HashMap<String, PointerValue> = HashMap::new();
+
 
                 for func in class.funcs.clone() {
-                    println!("{}", func.0);
-                    compile(&func.1.body, &funcMap, &mut Vec::new());
+                    println!("compiling {}::{}...", class.name, func.0);
+                    let result = compiler.compile_function(&func.0, &func.1, &func_map, &mut variable_map);
+
+                    match result {
+                        Ok(result) => (),
+                        Err(error) => println!("{}", error.msg.as_str())
+                    };
                 }
             }
         }
+
+        pass_manager.run_on(&module);
+        module.print_to_stderr();
+
+        module.write_bitcode_to_path(Path::new("testoutput.bc"));
         
+
+
+        let target_machine = get_native_target_machine();
+        apply_target_to_module(&target_machine, &module);
+        target_machine.write_to_file(&module, FileType::Object, Path::new("output.o"));
+
 
         // if let Some(funcs) = ast.filter(|_| errs.len() + parse_errs.len() == 0) {
         //     if let Some(main) = funcs.get("main") {
@@ -145,6 +239,4 @@ fn main() {
 
             report.finish().print(Source::from(&src)).unwrap();
         });
-}
-
 }

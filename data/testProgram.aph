@@ -1,6 +1,11 @@
 
 class myClass {
-    fn myFunc(x: bool, y: bool): f32 {
-        var z = 4 * (2 + 5);
+    fn main(): i32 {
+        var myVariable: i32 = 4;
+        var myOtherVariable: i32 = 4 * (2 + 5);
+        var added: i32 = myVariable + myOtherVariable;
+        return added;
     }
 }
+
+

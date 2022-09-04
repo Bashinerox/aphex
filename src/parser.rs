@@ -209,19 +209,30 @@ pub fn expression_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<T
      // A var statement
      let var_statement = just(Token::Var)
      .ignore_then(ident)
+     .then_ignore(just(Token::Ctrl(':')))
+     .then(ident)
      .then_ignore(just(Token::Op("=".to_string())))
      .then(raw_expr.clone())
      .then_ignore(just(Token::Ctrl(';')))
-     .map_with_span(|(name, val), span: Span| {
-         (Expr::Let(name, Box::new(val)), span)
+     .map_with_span(|((name, typename), val), span: Span| {
+         (Expr::Var(name, typename, Box::new(val)), span)
      });
+
+     let ret_statement = just(Token::Ret)
+     .ignore_then(raw_expr.clone())
+     .then_ignore(just(Token::Ctrl(';')))
+     .map_with_span(|val, span: Span| {
+         (Expr::Ret(Box::new(val)), span)
+     });
+
 
  let expression_statement = 
      raw_expr.clone()
      .then_ignore(just(Token::Ctrl(';')));
 
   let statement = expression_statement.clone()
-      .or(var_statement.clone());
+      .or(var_statement.clone())
+      .or(ret_statement);
 
  // let block = expr
  // .clone()

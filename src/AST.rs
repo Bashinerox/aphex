@@ -25,6 +25,7 @@ pub enum Token {
     Class,
     Fn,
     Var,
+    Ret,
     Td,
 
     Print,
@@ -40,35 +41,18 @@ pub enum Type {
     Str,
 }
 
-// impl FromStr for Type {
-
-//     type Err = ();
-
-//     fn from_str(input: &str) -> Result<Type, Self::Err> {
-//         match input {
-//             "void"  => Ok(Foo::Bar),
-//             "i32"  => Ok(Foo::Baz),
-//             "i64"  => Ok(Foo::Bat),
-//             "f32" => Ok(Foo::Quux),
-//             _      => Err(()),
-//         }
-//     }
-// }
-
-
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),
-    Num(f64),
+    Num(f32),
     Str(String),
     List(Vec<Value>),
     Func(String),
 }
 
 impl Value {
-    pub fn num(self, span: Span) -> Result<f64, Error> {
+    pub fn num(self, span: Span) -> Result<f32, Error> {
         if let Value::Num(x) = self {
             Ok(x)
         } else {
@@ -119,13 +103,12 @@ pub enum Expr {
     Value(Value),
     List(Vec<Spanned<Self>>),
     Local(String),
-    Let(String, Box<Spanned<Self>>),
+    Var(String, String, Box<Spanned<Self>>),
     Then(Box<Spanned<Self>>, Box<Spanned<Self>>),
     Binary(Box<Spanned<Self>>, BinaryOp, Box<Spanned<Self>>),
     Call(Box<Spanned<Self>>, Vec<Spanned<Self>>),
     If(Box<Spanned<Self>>, Box<Spanned<Self>>, Box<Spanned<Self>>),
-    Print(Box<Spanned<Self>>),
-    
+    Ret(Box<Spanned<Self>>),
 }
 
 #[derive(Debug, Clone)]
@@ -156,6 +139,7 @@ impl fmt::Display for Token {
             Token::Fn => write!(f, "fun"),
             Token::Td => write!(f, ":"),
             Token::Var => write!(f, "let"),
+            Token::Ret => write!(f, "return"),
             Token::Print => write!(f, "print"),
             Token::If => write!(f, "if"),
             Token::Else => write!(f, "else"),
