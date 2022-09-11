@@ -26,12 +26,10 @@ pub enum Token {
     Fn,
     Var,
     Ret,
-    Td,
-
-    Print,
+    As,
     If,
     Else,
-}
+} 
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Type {
@@ -115,11 +113,12 @@ pub enum Expr {
 pub struct Function {
     pub return_type: String,
     pub params: Vec<(String, String)>,
+    pub generic_params: Vec<String>,
     pub body: Spanned<Expr>,
     //body: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Class {
     pub name: String,
     pub funcs: Vec<(String, Function)>,
@@ -137,10 +136,9 @@ impl fmt::Display for Token {
             Token::Ident(s) => write!(f, "{}", s),
             Token::Class => write!(f, "class"),
             Token::Fn => write!(f, "fun"),
-            Token::Td => write!(f, ":"),
+            Token::As => write!(f, "as"),
             Token::Var => write!(f, "let"),
             Token::Ret => write!(f, "return"),
-            Token::Print => write!(f, "print"),
             Token::If => write!(f, "if"),
             Token::Else => write!(f, "else"),
         }

@@ -13,25 +13,17 @@ use crate::ast::BinaryOp;
 use crate::ast::Spanned;
 
 
-
-pub fn function_parser() -> impl Parser<Token, (String, Function), Error = Simple<Token>> + Clone {
+pub fn function_declaration_parser() -> impl Parser<Token, (((String, Vec<Vec<String>>), Vec<(String, String)>), String), Error=Simple<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident.clone() }.labelled("identifier");
-    
-    let function_body =  expression_parser()
-    // .then(just(Token::Return))
-    .delimited_by(
-        just(Token::Ctrl('{')),
-        just(Token::Ctrl('}'))
-    )
-    .recover_with(nested_delimiters(
-        Token::Ctrl('{'),
-        Token::Ctrl('}'),
-        [
-            (Token::Ctrl('('), Token::Ctrl(')')),
-            (Token::Ctrl('['), Token::Ctrl(']')),
-        ],
-        |span| (Expr::Error, span),
-    ));
+
+    let template_list = ident.clone()
+        .separated_by(just(Token::Ctrl(',')))
+        .delimited_by(
+            just(Token::Ctrl('<')),
+            just(Token::Ctrl('>'))
+        )
+        .repeated().at_most(1)
+        .labelled("template type list");
 
     let function_parameter = 
         ident.clone()
@@ -52,17 +44,46 @@ pub fn function_parser() -> impl Parser<Token, (String, Function), Error = Simpl
         )
         .labelled("function params");
 
-    let function_definition = just(Token::Fn)
+    let function_declaration = just(Token::Fn)
         .ignore_then(ident.clone())
+        .then(template_list)
         .then(params)
-        .then_ignore(just(Token::Ctrl(':')))
-        .then(ident.clone()) //return type
+        .then_ignore(just(Token::Op("->".into())))
+        .then(ident.clone());
+
+        function_declaration
+}
+
+pub fn function_parser() -> impl Parser<Token, (String, Function), Error = Simple<Token>> + Clone {
+    //let ident = select! { Token::Ident(ident) => ident.clone() }.labelled("identifier");
+    
+    let function_body =  expression_parser()
+    // .then(just(Token::Return))
+    .delimited_by(
+        just(Token::Ctrl('{')),
+        just(Token::Ctrl('}'))
+    )
+    .recover_with(nested_delimiters(
+        Token::Ctrl('{'),
+        Token::Ctrl('}'),
+        [
+            (Token::Ctrl('('), Token::Ctrl(')')),
+            (Token::Ctrl('['), Token::Ctrl(']')),
+        ],
+        |span| (Expr::Error, span),
+    ));
+
+    let function_definition =
+        function_declaration_parser()
         .then(function_body)
-        .map(|(((name, params), return_type), body)| {
+        .map(|((((name, generic_params), params), return_type), body)| {
             (
                 name,
                 Function {
                     return_type: return_type,
+                    generic_params: if generic_params.len() > 0 
+                             {generic_params[0].clone()}
+                        else {Vec::<String>::new()},
                     params: params,
                     body: body,
                 }
@@ -209,7 +230,7 @@ pub fn expression_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<T
      // A var statement
      let var_statement = just(Token::Var)
      .ignore_then(ident)
-     .then_ignore(just(Token::Ctrl(':')))
+     .then_ignore(just(Token::As))
      .then(ident)
      .then_ignore(just(Token::Op("=".to_string())))
      .then(raw_expr.clone())

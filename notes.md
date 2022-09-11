@@ -26,7 +26,7 @@ Chip is not:
 * parameters are declared with the form `name as type`
 * parameters are separated with commas
 * the contents of the function are placed between braces
-* the return type is specified after the parenthesis list, preceded by `->`
+* the return type is specified after the parenthesised argument list, preceded by `->`
 
 ```Rust
 fn myFunc(name as string) -> void {

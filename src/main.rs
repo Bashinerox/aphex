@@ -38,9 +38,9 @@ use crate::ast::BinaryOp;
 use chumsky::Parser;
 
 fn print_splash() {
-    println!("⌜                            ⌝");
-    println!(" APHEX: THE TWINNING COMPILER ");
-    println!("⌞                            ⌟");
+    println!("┌                               ┐");
+    println!("| Chip: right off the ol' block |");
+    println!("└                               ┘");
 }
 
 fn get_host_cpu_name() -> String {
