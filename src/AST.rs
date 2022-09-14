@@ -82,8 +82,6 @@ impl std::fmt::Display for Value {
     }
 }
 
-
-
 #[derive(Clone, Debug)]
 pub enum BinaryOp {
     Add,
@@ -93,7 +91,6 @@ pub enum BinaryOp {
     Eq,
     NotEq,
 }
-
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -110,18 +107,34 @@ pub enum Expr {
 }
 
 #[derive(Debug, Clone)]
-pub struct Function {
+pub struct FunctionSignature {
     pub return_type: String,
     pub params: Vec<(String, String)>,
     pub generic_params: Vec<String>,
-    pub body: Spanned<Expr>,
     //body: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionDefinition {
+    pub signature: FunctionSignature,
+    pub body: Spanned<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NamedFunction {
+    pub name: String,
+    pub definition: FunctionDefinition
 }
 
 #[derive(Debug, Clone)]
 pub struct Class {
     pub name: String,
-    pub funcs: Vec<(String, Function)>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ProgramUnit {
+    Class(Class),
+    Function(NamedFunction),
 }
 
 impl fmt::Display for Token {

@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 
-use ast::{Spanned, Expr, Value};
+use ast::{Spanned, Expr, Value, FunctionSignature};
 use chumsky::{prelude::*, Stream};
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use inkwell::OptimizationLevel;
@@ -24,7 +24,7 @@ pub mod lexer;
 pub mod compile;
 pub mod ast;
 
-use crate::parser::class_parser;
+use crate::parser::program_parser;
 use crate::lexer::lexer;
 use crate::compile::Compiler;
 
@@ -32,7 +32,7 @@ use crate::ast::Token;
 // use crate::AST::Spanned;
 // use crate::AST::Expr;
 // use crate::AST::Value;
-use crate::ast::Function;
+use crate::ast::FunctionDefinition;
 use crate::ast::Error;
 use crate::ast::BinaryOp;
 use chumsky::Parser;
@@ -117,27 +117,45 @@ fn main() {
         //dbg!(tokens.clone());
         let len = src.chars().count();
         let (ast, parse_errs) =
-            class_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
+            program_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
 
         //dbg!(ast.clone());
 
 
-        if let Some(classes) = ast.filter(|_| errs.len() + parse_errs.len() == 0) {
-            for class in classes {
-                println!("compiling {}...", class.name);
-                let func_map: HashMap<String, Function> = class.funcs.clone().into_iter().collect();
-                let mut variable_map: HashMap<String, PointerValue> = HashMap::new();
+        if let Some(program_units) = ast.filter(|_| errs.len() + parse_errs.len() == 0) {
 
-
-                for func in class.funcs.clone() {
-                    println!("compiling {}::{}...", class.name, func.0);
-                    let result = compiler.compile_function(&func.0, &func.1, &func_map, &mut variable_map);
-
-                    match result {
-                        Ok(result) => (),
-                        Err(error) => println!("{}", error.msg.as_str())
-                    };
+            let mut func_map: HashMap<String, FunctionSignature> = HashMap::new();
+            let mut variable_map: HashMap<String, PointerValue> = HashMap::new();
+    
+            //first pass, map all program units into their respective maps
+            for unit in program_units.clone() {
+                match unit {
+                    ast::ProgramUnit::Class(_) => {
+                        ()//dont do anything with class yet
+                    },
+                    ast::ProgramUnit::Function(function) => {
+                        func_map.insert(function.name, function.definition.signature.clone());
+                    },
                 }
+            }
+
+            for unit in program_units {
+                match unit {
+                    ast::ProgramUnit::Class(class) => {
+                        //todo!()
+                    },
+                    ast::ProgramUnit::Function(function) => {
+                        println!("compiling {}...", function.name);
+                        let result = compiler.compile_function(&function.name, &function.definition, &func_map, &mut variable_map);
+    
+                        match result {
+                            Ok(result) => (),
+                            Err(error) => println!("{}", error.msg.as_str())
+                        };
+    
+                    },
+                }
+                //println!("compiling {}...", unit.name);
             }
         }
 
@@ -151,19 +169,6 @@ fn main() {
         let target_machine = get_native_target_machine();
         apply_target_to_module(&target_machine, &module);
         target_machine.write_to_file(&module, FileType::Object, Path::new("output.o"));
-
-
-        // if let Some(funcs) = ast.filter(|_| errs.len() + parse_errs.len() == 0) {
-        //     if let Some(main) = funcs.get("main") {
-        //         assert_eq!(main.args.len(), 0);
-        //         // match eval_expr(&main.body, &funcs, &mut Vec::new()) {
-        //         //     Ok(val) => println!("Return value: {}", val),
-        //         //     Err(e) => errs.push(Simple::custom(e.span, e.msg)),
-        //         // }
-        //     } else {
-        //         panic!("No main function!");
-        //     }
-        // }
 
         parse_errs
     } else {

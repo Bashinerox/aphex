@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use crate::Value;
 use crate::Spanned;
 use crate::Expr;
-use crate::Function;
+use crate::FunctionDefinition;
 use crate::Error;
 use crate::BinaryOp;
+use crate::ast::FunctionSignature;
 
 
 use inkwell::builder::Builder;
@@ -63,17 +64,17 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub fn compile_function(
         &self,
         name: &String,
-        func: &Function,
-        func_map: &HashMap<String, Function>,
+        func: &FunctionDefinition,
+        func_map: &HashMap<String, FunctionSignature>,
         variables: &mut HashMap<String, PointerValue<'ctx>>
     ) -> Result<(FunctionType, FunctionValue<'ctx>), Error> {
 
-        let param_types: Vec<BasicMetadataTypeEnum> = func.params
+        let param_types: Vec<BasicMetadataTypeEnum> = func.signature.params
             .iter()
             .map(|(_name, param_type)| Into::<BasicMetadataTypeEnum>::into(self.to_type(param_type)))
             .collect::<Vec<BasicMetadataTypeEnum>>();
 
-        let return_type = self.to_type(&func.return_type);
+        let return_type = self.to_type(&func.signature.return_type);
         let func_type = return_type.fn_type(param_types.as_slice(), false);
 
         //TODO: set up linkage
@@ -81,7 +82,11 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
         let entry_point = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(entry_point);
-        let _compiled_body = self.compile_expression(&func.body, &func_map, variables, &function);
+        let compilation_result = self.compile_expression(&func.body, &func_map, variables, &function);
+        match compilation_result {
+            Ok(_) => (),
+            Err(err) => return Err(err),
+        }
 
         Ok((func_type, function))
     }
@@ -89,7 +94,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
     pub fn compile_expression( &self,
         expr: &Spanned<Expr>,
-        funcs: &HashMap<String, Function>,
+        funcs: &HashMap<String, FunctionSignature>,
         variables: &mut HashMap<String, PointerValue<'ctx>>,
         current_function: &FunctionValue<'ctx>,
     ) -> Result<BasicValueEnum, Error> {
@@ -123,7 +128,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 match variables.get(name.as_str()) {
                     Some(var) => Ok(self.builder.build_load(*var, name.as_str())),
                     None => Err(Error{
-                        msg: format!("Could not find a matching variable."),
+                        msg: format!("The variable named {} does not exist.", name),
                         span: expr.1.clone()
                     }),
                 }

@@ -2,18 +2,22 @@
 use chumsky::prelude::*;
 use chumsky::Parser;
 
+use crate::ast;
 use crate::ast::Span;
 use crate::ast::Token;
 use crate::ast::Class;
-use crate::ast::Function;
+use crate::ast::FunctionSignature;
+use crate::ast::NamedFunction;
+use crate::ast::FunctionDefinition;
 use crate::ast::Expr;
 use crate::ast::Value;
 use crate::ast::BinaryOp;
+use crate::ast::ProgramUnit;
 
 use crate::ast::Spanned;
 
 
-pub fn function_declaration_parser() -> impl Parser<Token, (((String, Vec<Vec<String>>), Vec<(String, String)>), String), Error=Simple<Token>> + Clone {
+pub fn function_declaration_parser() -> impl Parser<Token, (String, FunctionSignature), Error=Simple<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident.clone() }.labelled("identifier");
 
     let template_list = ident.clone()
@@ -51,12 +55,26 @@ pub fn function_declaration_parser() -> impl Parser<Token, (((String, Vec<Vec<St
         .then_ignore(just(Token::Op("->".into())))
         .then(ident.clone());
 
-        function_declaration
+        function_declaration.map(| (((name, generic_params), params), return_type) | {
+            (
+                name,
+                FunctionSignature {
+                    return_type: return_type,
+                    generic_params:
+                        if generic_params.len() > 0 {
+                            generic_params[0].clone()
+                        } else {
+                            Vec::<String>::new()
+                        },
+                    params: params,
+                }
+            )        
+        })
 }
 
-pub fn function_parser() -> impl Parser<Token, (String, Function), Error = Simple<Token>> + Clone {
+pub fn function_definition_parser() -> impl Parser<Token, NamedFunction, Error = Simple<Token>> + Clone {
     //let ident = select! { Token::Ident(ident) => ident.clone() }.labelled("identifier");
-    
+
     let function_body =  expression_parser()
     // .then(just(Token::Return))
     .delimited_by(
@@ -76,48 +94,62 @@ pub fn function_parser() -> impl Parser<Token, (String, Function), Error = Simpl
     let function_definition =
         function_declaration_parser()
         .then(function_body)
-        .map(|((((name, generic_params), params), return_type), body)| {
-            (
-                name,
-                Function {
-                    return_type: return_type,
-                    generic_params: if generic_params.len() > 0 
-                             {generic_params[0].clone()}
-                        else {Vec::<String>::new()},
-                    params: params,
+        .map(|((name, signature), body)| {
+            NamedFunction {
+                name: name,
+                definition: FunctionDefinition {
+                    signature: signature,
                     body: body,
                 }
-            )
+            }
         })
         .labelled("function");
 
     function_definition
 }
 
-pub fn class_parser() -> impl Parser<Token, Vec<Class>, Error = Simple<Token>> + Clone {
+//parse the class.
+//outputs a list of tuple of (class, function defintion list)
+pub fn class_parser() -> impl Parser<Token, Vec<ProgramUnit>, Error = Simple<Token>> + Clone {
     let ident = select! { Token::Ident(ident) => ident.clone() }.labelled("identifier");
     
-    let classDefinition = function_parser()
+    let classDefinition = function_definition_parser()
+        .map(|function| {
+            ProgramUnit::Function(function)
+        })
         .repeated()
         .delimited_by(
             just(Token::Ctrl('{')),
             just(Token::Ctrl('}'))
         );
 
-
     let classDecl = 
-    just(Token::Class)
-    .ignore_then(ident)
-    .then(classDefinition.clone())
-    .map(|(name, funcs)| {
-        Class {
-            name: name,
-            funcs: funcs
-        }
-    });
+        just(Token::Class)
+        .ignore_then(ident)
+        .map(|name| {
+            ProgramUnit::Class(Class{
+                name: name,
+            })
+        })
+        .chain(classDefinition.clone())
+        .map(|funcs| {
+            funcs
+        });
 
-    classDecl.repeated()
+    classDecl
+}
+
+pub fn program_parser() -> impl Parser<Token, Vec<ProgramUnit>, Error = Simple<Token>> + Clone {
+    class_parser()
+    .or(
+        function_definition_parser()
+        .map(|function| {
+            vec![ProgramUnit::Function(function)]
+        })
+    )
+    .repeated()
     .then_ignore(end())
+    .flatten()
 }
 
 pub fn expression_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone {

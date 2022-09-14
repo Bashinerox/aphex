@@ -1,9 +1,11 @@
-extern fn exit(returnValue as i32) -> void;
+//extern fn exit(returnValue as i32) -> void;
 
-
+fn main() -> i32 {
+    return thing;
+}
 
 class myClass {
-    fn main<T, T>() -> i32 {
+    fn method<T, T>() -> i32 {
         var myVariable as i32 = 4;
         var myOtherVariable as i32 = 4 * (2 + 5);
         var added as i32 = myVariable + myOtherVariable;
