@@ -1,4 +1,5 @@
-//extern fn exit(returnValue as i32) -> void;
+
+extern fn exit(returnValue as i32) -> void;
 
 fn main() -> i32 {
     return thing;
